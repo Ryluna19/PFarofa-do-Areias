@@ -1,6 +1,20 @@
 const STORAGE_KEY = "farofa_orders";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
+const ADMIN_TOKEN_KEY = "farofa-admin-token";
+
+function getAdminAuthHeaders() {
+  const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+
+  if (!token) {
+    throw new Error("Admin session expired. Please sign in again.");
+  }
+
+  return {
+    Authorization: `Bearer ${token}`,
+  };
+}
+
 function loadOrders() {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
@@ -71,8 +85,31 @@ export async function getOrders() {
   );
 }
 
+export async function loginAdmin(email, password) {
+  const response = await fetch(`${API_URL}/auth/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      email,
+      password,
+    }),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.error || "Unable to authenticate admin");
+  }
+
+  return result;
+}
+
 export async function getAdminOrders() {
-  const response = await fetch(`${API_URL}/orders`);
+  const response = await fetch(`${API_URL}/orders`, {
+    headers: getAdminAuthHeaders(),
+  });
 
   const result = await response.json();
 
@@ -88,6 +125,7 @@ export async function updateAdminOrderStatus(orderId, status) {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
+      ...getAdminAuthHeaders(),
     },
     body: JSON.stringify({ status }),
   });
@@ -100,7 +138,6 @@ export async function updateAdminOrderStatus(orderId, status) {
 
   return result;
 }
-
 
 export async function updateOrderStatus(orderId, newStatus) {
   await new Promise((resolve) => setTimeout(resolve, 150));

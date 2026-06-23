@@ -8,11 +8,14 @@ import DemoPagamento from "./DemoPagamento";
 import DemoRastreio from "./DemoRastreio";
 import DemoPerfil from "./DemoPerfil";
 import DemoAdmin from "./DemoAdmin";
+import DemoAdminLogin from "./DemoAdminLogin";
+import { useAdminAuth } from "../context/AdminAuthContext";
 
 export default function DemoLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { totalItens } = useCarrinho();
+  const { isAuthenticated } = useAdminAuth();
 
   const isHome = location.pathname === "/";
   const isPerfil = location.pathname === "/perfil";
@@ -62,7 +65,10 @@ export default function DemoLayout() {
           <Route path="/pagamento" element={<DemoPagamento />} />
           <Route path="/rastreio" element={<DemoRastreio />} />
           <Route path="/perfil" element={<DemoPerfil />} />
-          <Route path="/admin" element={<DemoAdmin />} />
+          <Route
+            path="/admin"
+            element={isAuthenticated ? <DemoAdmin /> : <DemoAdminLogin />}
+          />
         </Routes>
       </div>
 
@@ -70,9 +76,8 @@ export default function DemoLayout() {
         <div className="grid grid-cols-3 py-2 border-t border-zinc-800 bg-zinc-900 shrink-0">
           <button
             onClick={() => navigate("/")}
-            className={`flex flex-col items-center gap-0.5 ${
-              isHome ? "text-orange-400" : "text-zinc-500"
-            }`}
+            className={`flex flex-col items-center gap-0.5 ${isHome ? "text-orange-400" : "text-zinc-500"
+              }`}
           >
             <Menu className="w-5 h-5" />
             <span className="text-[10px]">Cardápio</span>
@@ -80,9 +85,8 @@ export default function DemoLayout() {
 
           <button
             onClick={() => navigate("/perfil")}
-            className={`flex flex-col items-center gap-0.5 ${
-              isPerfil ? "text-orange-400" : "text-zinc-500"
-            }`}
+            className={`flex flex-col items-center gap-0.5 ${isPerfil ? "text-orange-400" : "text-zinc-500"
+              }`}
           >
             <User className="w-5 h-5" />
             <span className="text-[10px]">Perfil</span>
@@ -90,9 +94,8 @@ export default function DemoLayout() {
 
           <button
             onClick={() => navigate("/admin")}
-            className={`flex flex-col items-center gap-0.5 ${
-              isAdmin ? "text-orange-400" : "text-zinc-500"
-            }`}
+            className={`flex flex-col items-center gap-0.5 ${isAdmin ? "text-orange-400" : "text-zinc-500"
+              }`}
           >
             <ClipboardList className="w-5 h-5" />
             <span className="text-[10px]">Admin</span>

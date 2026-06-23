@@ -1,22 +1,24 @@
 import cors from "cors";
 import express from "express";
+import { authRouter } from "./routes/authRoutes.js";
 import { ordersRouter } from "./routes/ordersRoutes.js";
 import { productsRouter } from "./routes/productsRoutes.js";
 
 export function createApp() {
-    const app = express();
+const app = express();
 
-    app.use(cors());
-    app.use(express.json());
+app.use(cors());
+app.use(express.json());
 
-    app.get("/api/health", (_request, response) => {
-        response.status(200).json({
-            message: "Farofa do Areias API is running",
-        });
-    });
+app.get("/api/health", (_request, response) => {
+response.status(200).json({
+message: "Farofa do Areias API is running",
+});
+});
 
-    app.use("/api/products", productsRouter);
-    app.use("/api/orders", ordersRouter);
+app.use("/api/auth", authRouter);
+app.use("/api/products", productsRouter);
+app.use("/api/orders", ordersRouter);
 
-    return app;
+return app;
 }

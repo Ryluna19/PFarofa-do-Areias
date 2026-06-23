@@ -11,6 +11,11 @@ const enderecoInicial = {
   cep: "",
 };
 
+const clienteInicial = {
+  nome: "",
+  telefone: "",
+};
+
 function carregarCarrinho() {
   const itensSalvos = localStorage.getItem("farofa-carrinho");
 
@@ -30,34 +35,61 @@ function carregarCarrinho() {
   }
 }
 
-function carregarEndereco() {
-  const enderecoSalvo = localStorage.getItem("farofa-endereco");
+function carregarDados(chave, valorPadrao) {
+  const dadosSalvos = localStorage.getItem(chave);
 
-  if (!enderecoSalvo) {
-    return enderecoInicial;
+  if (!dadosSalvos) {
+    return valorPadrao;
   }
 
   try {
+    const dadosConvertidos = JSON.parse(dadosSalvos);
+
+
+    if (
+      typeof dadosConvertidos !== "object" ||
+      dadosConvertidos === null ||
+      Array.isArray(dadosConvertidos)
+    ) {
+      return valorPadrao;
+    }
+
     return {
-      ...enderecoInicial,
-      ...JSON.parse(enderecoSalvo),
+      ...valorPadrao,
+      ...dadosConvertidos,
     };
+
+
   } catch {
-    return enderecoInicial;
+    return valorPadrao;
   }
 }
 
 export function CarrinhoProvider({ children }) {
   const [itens, setItens] = useState(carregarCarrinho);
-  const [enderecoEntrega, setEnderecoEntrega] = useState(carregarEndereco);
+
+  const [enderecoEntrega, setEnderecoEntrega] = useState(() =>
+    carregarDados("farofa-endereco", enderecoInicial)
+  );
+
+  const [cliente, setCliente] = useState(() =>
+    carregarDados("farofa-cliente", clienteInicial)
+  );
 
   useEffect(() => {
     localStorage.setItem("farofa-carrinho", JSON.stringify(itens));
   }, [itens]);
 
   useEffect(() => {
-    localStorage.setItem("farofa-endereco", JSON.stringify(enderecoEntrega));
+    localStorage.setItem(
+      "farofa-endereco",
+      JSON.stringify(enderecoEntrega)
+    );
   }, [enderecoEntrega]);
+
+  useEffect(() => {
+    localStorage.setItem("farofa-cliente", JSON.stringify(cliente));
+  }, [cliente]);
 
   const adicionarItem = (produto, personalizacao = {}) => {
     setItens((prev) => {
@@ -132,6 +164,8 @@ export function CarrinhoProvider({ children }) {
         totalItens,
         enderecoEntrega,
         setEnderecoEntrega,
+        cliente,
+        setCliente,
       }}
     >
       {children}

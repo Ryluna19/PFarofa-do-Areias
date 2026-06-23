@@ -74,7 +74,7 @@ export default function DemoRastreio() {
   const etapa = etapas[etapaAtual];
 
   const numeroPedido = pedido
-    ? `#${pedido.id}`
+    ? `#${pedido.orderNumber}`
     : pedidoId
       ? `#${pedidoId}`
       : "#0000";
@@ -95,7 +95,7 @@ export default function DemoRastreio() {
 
         {pedido && (
           <p className="text-zinc-500 text-xs mt-1">
-            {getPaymentLabel(pedido.payment_method)} ·{" "}
+            {getPaymentLabel(pedido.payment_Method)} ·{" "}
             {pedido.items?.length || 0} item(ns)
           </p>
         )}

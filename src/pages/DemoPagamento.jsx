@@ -51,7 +51,14 @@ function parseValor(valor) {
 
 export default function DemoPagamento() {
   const navigate = useNavigate();
-  const { itens, subtotal, limparCarrinho, enderecoEntrega } = useCarrinho();
+  const {
+    itens,
+    subtotal,
+    limparCarrinho,
+    cliente,
+    enderecoEntrega,
+  } = useCarrinho();
+
 
   const taxaEntrega = 5;
   const total = subtotal + taxaEntrega;
@@ -136,7 +143,24 @@ export default function DemoPagamento() {
   };
 
   const handleConfirmar = () => {
-    if (!pagamentoValido) {
+    const telefoneNumeros = cliente.telefone.replace(/\D/g, "");
+
+    const clienteValido =
+      cliente.nome.trim().length >= 2 &&
+      telefoneNumeros.length >= 10;
+
+    const enderecoValido =
+      enderecoEntrega.rua.trim() &&
+      enderecoEntrega.numero.trim() &&
+      enderecoEntrega.bairro.trim() &&
+      enderecoEntrega.cidade.trim();
+
+    if (
+      !pagamentoValido ||
+      !clienteValido ||
+      !enderecoValido ||
+      itens.length === 0
+    ) {
       return;
     }
 
@@ -144,20 +168,20 @@ export default function DemoPagamento() {
 
     criarPedidoMutation.mutate(
       {
-        items: itens.map((item) => ({
-          name: item.nome || item.name,
-          emoji: item.emoji,
-          price: item.preco !== undefined ? item.preco : item.price,
-          quantity: item.quantidade,
-          personalizacao: item.personalizacao,
-        })),
-        subtotal,
-        delivery_fee: taxaEntrega,
-        total,
-        payment_method: metodo,
-        payment_details: getPaymentDetails(),
+        customer: {
+          name: cliente.nome.trim(),
+          phone: telefoneNumeros,
+        },
         address: enderecoEntrega,
-        status: "confirmed",
+        payment: {
+          method: metodo,
+          details: getPaymentDetails(),
+        },
+        items: itens.map((item) => ({
+          productId: item.id,
+          quantity: item.quantidade,
+          customization: item.personalizacao || {},
+        })),
       },
       {
         onSuccess: (pedido) => {

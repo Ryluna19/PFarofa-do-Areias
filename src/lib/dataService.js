@@ -13,10 +13,6 @@ function saveOrders(orders) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
 }
 
-function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-}
-
 export async function getProducts() {
   const response = await fetch(`${API_URL}/products`);
 
@@ -34,27 +30,37 @@ export async function getProducts() {
 }
 
 export async function createOrder(data) {
-  await new Promise((resolve) => setTimeout(resolve, 200));
+  const response = await fetch(`${API_URL}/orders`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
 
-  const orders = loadOrders();
+  const result = await response.json();
 
-  const newOrder = {
-    id: generateId(),
-    ...data,
-    status: "confirmed",
-    created_date: new Date().toISOString(),
-  };
+  if (!response.ok) {
+    throw new Error(result.error || "Unable to create order");
+  }
 
-  orders.push(newOrder);
-  saveOrders(orders);
-
-  return newOrder;
+  return result;
 }
 
 export async function getOrder(id) {
-  await new Promise((resolve) => setTimeout(resolve, 100));
+  const response = await fetch(`${API_URL}/orders/${id}`);
 
-  return loadOrders().find((order) => order.id === id) || null;
+  if (response.status === 404) {
+    return null;
+  }
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.error || "Unable to fetch order");
+  }
+
+  return result;
 }
 
 export async function getOrders() {
@@ -75,11 +81,14 @@ export async function updateOrderStatus(orderId, newStatus) {
       return order;
     }
 
+
     return {
       ...order,
       status: newStatus,
       updated_date: new Date().toISOString(),
     };
+
+
   });
 
   saveOrders(updatedOrders);
@@ -92,6 +101,6 @@ export async function getCurrentUser() {
 
   return {
     full_name: "Cliente",
-    email: "cliente@farofadoareias.com.br",
+    email: "[cliente@farofadoareias.com.br](mailto:cliente@farofadoareias.com.br)",
   };
 }

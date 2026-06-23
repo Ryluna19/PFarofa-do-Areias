@@ -11,31 +11,53 @@ const enderecoInicial = {
   cep: "",
 };
 
+function carregarCarrinho() {
+  const itensSalvos = localStorage.getItem("farofa-carrinho");
+
+  if (!itensSalvos) {
+    return [];
+  }
+
+  try {
+    const itensConvertidos = JSON.parse(itensSalvos);
+
+
+    return Array.isArray(itensConvertidos) ? itensConvertidos : [];
+
+
+  } catch {
+    return [];
+  }
+}
+
+function carregarEndereco() {
+  const enderecoSalvo = localStorage.getItem("farofa-endereco");
+
+  if (!enderecoSalvo) {
+    return enderecoInicial;
+  }
+
+  try {
+    return {
+      ...enderecoInicial,
+      ...JSON.parse(enderecoSalvo),
+    };
+  } catch {
+    return enderecoInicial;
+  }
+}
+
 export function CarrinhoProvider({ children }) {
-  const [itens, setItens] = useState(() => {
-    const itensSalvos = localStorage.getItem("farofa-carrinho");
-
-
-    if (!itensSalvos) {
-      return [];
-    }
-
-    try {
-      const itensConvertidos = JSON.parse(itensSalvos);
-
-      return Array.isArray(itensConvertidos) ? itensConvertidos : [];
-    } catch {
-      return [];
-    }
-
-
-  });
-
-  const [enderecoEntrega, setEnderecoEntrega] = useState(enderecoInicial);
+  const [itens, setItens] = useState(carregarCarrinho);
+  const [enderecoEntrega, setEnderecoEntrega] = useState(carregarEndereco);
 
   useEffect(() => {
     localStorage.setItem("farofa-carrinho", JSON.stringify(itens));
   }, [itens]);
+
+  useEffect(() => {
+    localStorage.setItem("farofa-endereco", JSON.stringify(enderecoEntrega));
+  }, [enderecoEntrega]);
 
   const adicionarItem = (produto, personalizacao = {}) => {
     setItens((prev) => {
@@ -61,6 +83,7 @@ export function CarrinhoProvider({ children }) {
         },
       ];
     });
+
 
   };
 

@@ -488,3 +488,266 @@ ordersRouter.get("/:id", async (request, response) => {
     }
 });
 
+type AdminOrderRow = {
+    id: string;
+    orderNumber: string;
+    customerName: string;
+    status: string;
+    paymentMethod: string;
+    total: string;
+    createdAt: string;
+    street: string;
+    number: string;
+    neighborhood: string;
+    city: string;
+};
+
+type AdminOrderItemRow = {
+    id: number;
+    orderId: string;
+    name: string;
+    emoji: string;
+    unitPrice: string;
+    quantity: number;
+    customization: Record<string, unknown>;
+};
+
+ordersRouter.get("/", async (_request, response) => {
+    try {
+        const ordersResult = await pool.query<AdminOrderRow>(`       SELECT
+        id,
+        order_number AS "orderNumber",
+        customer_name AS "customerName",
+        status,
+        payment_method AS "paymentMethod",
+        total,
+        created_at AS "createdAt",
+        delivery_street AS street,
+        delivery_number AS number,
+        delivery_neighborhood AS neighborhood,
+        delivery_city AS city
+      FROM orders
+      ORDER BY created_at DESC
+    `);
+
+
+        const orders = ordersResult.rows;
+
+        if (orders.length === 0) {
+            return response.status(200).json([]);
+        }
+
+        const orderIds = orders.map((order) => order.id);
+
+        const itemsResult = await pool.query<AdminOrderItemRow>(
+            `
+    SELECT
+      id,
+      order_id AS "orderId",
+      product_name AS name,
+      product_emoji AS emoji,
+      unit_price AS "unitPrice",
+      quantity,
+      customization
+    FROM order_items
+    WHERE order_id = ANY($1::uuid[])
+    ORDER BY id ASC
+  `,
+            [orderIds]
+        );
+
+        const itemsByOrderId = new Map<string, AdminOrderItemRow[]>();
+
+        for (const item of itemsResult.rows) {
+            const currentItems = itemsByOrderId.get(item.orderId) || [];
+
+            currentItems.push(item);
+
+            itemsByOrderId.set(item.orderId, currentItems);
+        }
+
+        return response.status(200).json(
+            orders.map((order) => ({
+                id: order.id,
+                orderNumber: Number(order.orderNumber),
+                customerName: order.customerName,
+                status: order.status,
+                paymentMethod: order.paymentMethod,
+                total: Number(order.total),
+                createdAt: order.createdAt,
+                address: {
+                    rua: order.street,
+                    numero: order.number,
+                    bairro: order.neighborhood,
+                    cidade: order.city,
+                },
+                items: (itemsByOrderId.get(order.id) || []).map((item) => ({
+                    id: item.id,
+                    name: item.name,
+                    emoji: item.emoji,
+                    price: Number(item.unitPrice),
+                    quantity: item.quantity,
+                    customization: item.customization,
+                })),
+            }))
+        );
+
+
+    } catch (error) {
+        console.error("Failed to fetch admin orders:", error);
+
+
+        return response.status(500).json({
+            error: "Unable to fetch orders",
+        });
+
+
+    }
+});
+
+const orderStatuses = [
+    "confirmed",
+    "preparing",
+    "out_for_delivery",
+    "delivered",
+] as const;
+
+type OrderStatus = (typeof orderStatuses)[number];
+
+const allowedNextStatuses: Record<OrderStatus, OrderStatus[]> = {
+    confirmed: ["preparing"],
+    preparing: ["out_for_delivery"],
+    out_for_delivery: ["delivered"],
+    delivered: [],
+};
+
+
+function isValidUuid(value: string) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        value
+    );
+}
+
+ordersRouter.patch("/:id/status", async (request, response) => {
+    const orderId = request.params.id;
+    const body = request.body as { status?: unknown };
+
+    try {
+        if (!isValidUuid(orderId)) {
+            throw new HttpError(400, "Invalid order id");
+        }
+
+
+        if (typeof body.status !== "string") {
+            throw new HttpError(400, "Status is required");
+        }
+
+        const newStatus = body.status;
+
+        if (!orderStatuses.includes(newStatus as OrderStatus)) {
+            throw new HttpError(400, "Invalid status");
+        }
+
+        const nextStatus = newStatus as OrderStatus;
+
+
+        const client = await pool.connect();
+
+        try {
+            await client.query("BEGIN");
+
+            const currentOrderResult = await client.query<{
+                status: keyof typeof allowedNextStatuses;
+            }>(
+                `
+      SELECT status
+      FROM orders
+      WHERE id = $1
+      FOR UPDATE
+    `,
+                [orderId]
+            );
+
+            const currentOrder = currentOrderResult.rows[0];
+
+            if (!currentOrder) {
+                throw new HttpError(404, "Order not found");
+            }
+
+            const allowedStatuses =
+                allowedNextStatuses[currentOrder.status] || [];
+
+            if (!allowedStatuses.includes(nextStatus)) {
+                throw new HttpError(
+                    400,
+                    `Invalid status transition from ${currentOrder.status} to ${newStatus}`
+                );
+            }
+
+            const updatedOrderResult = await client.query<{
+                id: string;
+                orderNumber: string;
+                status: string;
+                updatedAt: string;
+            }>(
+                `
+      UPDATE orders
+      SET
+        status = $1,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      RETURNING
+        id,
+        order_number AS "orderNumber",
+        status,
+        updated_at AS "updatedAt"
+    `,
+                [nextStatus, orderId]
+            );
+
+            const updatedOrder = updatedOrderResult.rows[0];
+
+            await client.query(
+                `
+      INSERT INTO order_status_history (
+        order_id,
+        previous_status,
+        new_status
+      )
+      VALUES ($1, $2, $3)
+    `,
+                [orderId, currentOrder.status, nextStatus]
+            );
+
+            await client.query("COMMIT");
+
+            return response.status(200).json({
+                ...updatedOrder,
+                orderNumber: Number(updatedOrder.orderNumber),
+            });
+        } catch (error) {
+            await client.query("ROLLBACK");
+            throw error;
+        } finally {
+            client.release();
+        }
+
+
+    } catch (error) {
+        if (error instanceof HttpError) {
+            return response.status(error.statusCode).json({
+                error: error.message,
+            });
+        }
+
+
+        console.error("Failed to update order status:", error);
+
+        return response.status(500).json({
+            error: "Unable to update order status",
+        });
+
+
+    }
+});
+

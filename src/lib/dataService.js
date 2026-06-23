@@ -71,6 +71,37 @@ export async function getOrders() {
   );
 }
 
+export async function getAdminOrders() {
+  const response = await fetch(`${API_URL}/orders`);
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.error || "Unable to fetch admin orders");
+  }
+
+  return result;
+}
+
+export async function updateAdminOrderStatus(orderId, status) {
+  const response = await fetch(`${API_URL}/orders/${orderId}/status`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ status }),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.error || "Unable to update order status");
+  }
+
+  return result;
+}
+
+
 export async function updateOrderStatus(orderId, newStatus) {
   await new Promise((resolve) => setTimeout(resolve, 150));
 
@@ -104,3 +135,5 @@ export async function getCurrentUser() {
     email: "[cliente@farofadoareias.com.br](mailto:cliente@farofadoareias.com.br)",
   };
 }
+
+

@@ -51,7 +51,7 @@ function parseValor(valor) {
 
 export default function DemoPagamento() {
   const navigate = useNavigate();
-  const { itens, subtotal, limparCarrinho } = useCarrinho();
+  const { itens, subtotal, limparCarrinho, enderecoEntrega } = useCarrinho();
 
   const taxaEntrega = 5;
   const total = subtotal + taxaEntrega;
@@ -156,11 +156,7 @@ export default function DemoPagamento() {
         total,
         payment_method: metodo,
         payment_details: getPaymentDetails(),
-        address: {
-          rua: "Rua Farofa das Areias, 247",
-          bairro: "Jardim das Areias",
-          cidade: "Rio de Janeiro",
-        },
+        address: enderecoEntrega,
         status: "confirmed",
       },
       {
@@ -191,25 +187,22 @@ export default function DemoPagamento() {
           <button
             key={item.id}
             onClick={() => setMetodo(item.id)}
-            className={`w-full flex items-center gap-3 p-4 rounded-2xl border transition-all text-left ${
-              metodo === item.id
-                ? "border-orange-500 bg-orange-600/10"
-                : "border-zinc-800 bg-zinc-900 hover:border-zinc-600"
-            }`}
+            className={`w-full flex items-center gap-3 p-4 rounded-2xl border transition-all text-left ${metodo === item.id
+              ? "border-orange-500 bg-orange-600/10"
+              : "border-zinc-800 bg-zinc-900 hover:border-zinc-600"
+              }`}
           >
             <div
-              className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                metodo === item.id ? "bg-orange-600" : "bg-zinc-800"
-              }`}
+              className={`w-10 h-10 rounded-xl flex items-center justify-center ${metodo === item.id ? "bg-orange-600" : "bg-zinc-800"
+                }`}
             >
               <item.icon className="w-5 h-5 text-white" />
             </div>
 
             <div>
               <p
-                className={`text-sm font-bold ${
-                  metodo === item.id ? "text-orange-300" : "text-zinc-300"
-                }`}
+                className={`text-sm font-bold ${metodo === item.id ? "text-orange-300" : "text-zinc-300"
+                  }`}
               >
                 {item.label}
               </p>
@@ -217,11 +210,10 @@ export default function DemoPagamento() {
             </div>
 
             <div
-              className={`ml-auto w-4 h-4 rounded-full border-2 ${
-                metodo === item.id
-                  ? "border-orange-500 bg-orange-500"
-                  : "border-zinc-600"
-              }`}
+              className={`ml-auto w-4 h-4 rounded-full border-2 ${metodo === item.id
+                ? "border-orange-500 bg-orange-500"
+                : "border-zinc-600"
+                }`}
             />
           </button>
         ))}
@@ -268,22 +260,20 @@ export default function DemoPagamento() {
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => setCartaoModo("salvo")}
-              className={`py-2.5 rounded-xl text-sm font-bold border ${
-                cartaoModo === "salvo"
-                  ? "border-orange-500 bg-orange-600/20 text-orange-300"
-                  : "border-zinc-700 bg-zinc-800 text-zinc-400"
-              }`}
+              className={`py-2.5 rounded-xl text-sm font-bold border ${cartaoModo === "salvo"
+                ? "border-orange-500 bg-orange-600/20 text-orange-300"
+                : "border-zinc-700 bg-zinc-800 text-zinc-400"
+                }`}
             >
               Cartão salvo
             </button>
 
             <button
               onClick={() => setCartaoModo("novo")}
-              className={`py-2.5 rounded-xl text-sm font-bold border ${
-                cartaoModo === "novo"
-                  ? "border-orange-500 bg-orange-600/20 text-orange-300"
-                  : "border-zinc-700 bg-zinc-800 text-zinc-400"
-              }`}
+              className={`py-2.5 rounded-xl text-sm font-bold border ${cartaoModo === "novo"
+                ? "border-orange-500 bg-orange-600/20 text-orange-300"
+                : "border-zinc-700 bg-zinc-800 text-zinc-400"
+                }`}
             >
               Novo cartão
             </button>
@@ -295,11 +285,10 @@ export default function DemoPagamento() {
                 <button
                   key={cartao.id}
                   onClick={() => setCartaoSelecionado(cartao.id)}
-                  className={`w-full p-3 rounded-xl border text-left flex items-center justify-between ${
-                    cartaoSelecionado === cartao.id
-                      ? "border-orange-500 bg-orange-600/10"
-                      : "border-zinc-800 bg-zinc-950"
-                  }`}
+                  className={`w-full p-3 rounded-xl border text-left flex items-center justify-between ${cartaoSelecionado === cartao.id
+                    ? "border-orange-500 bg-orange-600/10"
+                    : "border-zinc-800 bg-zinc-950"
+                    }`}
                 >
                   <div>
                     <p className="text-zinc-100 text-sm font-bold">
@@ -311,11 +300,10 @@ export default function DemoPagamento() {
                   </div>
 
                   <span
-                    className={`w-4 h-4 rounded-full border-2 ${
-                      cartaoSelecionado === cartao.id
-                        ? "border-orange-500 bg-orange-500"
-                        : "border-zinc-600"
-                    }`}
+                    className={`w-4 h-4 rounded-full border-2 ${cartaoSelecionado === cartao.id
+                      ? "border-orange-500 bg-orange-500"
+                      : "border-zinc-600"
+                      }`}
                   />
                 </button>
               ))}
@@ -381,22 +369,20 @@ export default function DemoPagamento() {
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => setDinheiroOpcao("sem_troco")}
-              className={`py-2.5 rounded-xl text-sm font-bold border ${
-                dinheiroOpcao === "sem_troco"
-                  ? "border-orange-500 bg-orange-600/20 text-orange-300"
-                  : "border-zinc-700 bg-zinc-800 text-zinc-400"
-              }`}
+              className={`py-2.5 rounded-xl text-sm font-bold border ${dinheiroOpcao === "sem_troco"
+                ? "border-orange-500 bg-orange-600/20 text-orange-300"
+                : "border-zinc-700 bg-zinc-800 text-zinc-400"
+                }`}
             >
               Sem troco
             </button>
 
             <button
               onClick={() => setDinheiroOpcao("troco")}
-              className={`py-2.5 rounded-xl text-sm font-bold border ${
-                dinheiroOpcao === "troco"
-                  ? "border-orange-500 bg-orange-600/20 text-orange-300"
-                  : "border-zinc-700 bg-zinc-800 text-zinc-400"
-              }`}
+              className={`py-2.5 rounded-xl text-sm font-bold border ${dinheiroOpcao === "troco"
+                ? "border-orange-500 bg-orange-600/20 text-orange-300"
+                : "border-zinc-700 bg-zinc-800 text-zinc-400"
+                }`}
             >
               Preciso de troco
             </button>

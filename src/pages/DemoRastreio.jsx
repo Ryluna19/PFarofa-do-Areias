@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
-  CheckCircle2,
-  Clock,
-  ChefHat,
+  AlertCircle,
   Bike,
+  CheckCircle2,
+  ChefHat,
+  Clock,
   Home,
   Loader2,
 } from "lucide-react";
@@ -30,7 +31,7 @@ const etapas = [
     id: 2,
     status: "out_for_delivery",
     label: "Saiu para Entrega",
-    desc: "Entregador: João ⭐ 4.9",
+    desc: "Seu pedido saiu para entrega.",
     icon: Bike,
   },
   {
@@ -53,7 +54,25 @@ function getPaymentLabel(method) {
   if (method === "pix") return "Pago via Pix";
   if (method === "cartao") return "Pago com Cartão";
   if (method === "dinheiro") return "Dinheiro na entrega";
+
   return "Pagamento não informado";
+}
+
+function formatarMoeda(valor = 0) {
+  return Number(valor).toFixed(2).replace(".", ",");
+}
+
+function formatarData(data) {
+  if (!data) {
+    return "";
+  }
+
+  return new Date(data).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 export default function DemoRastreio() {
@@ -63,10 +82,15 @@ export default function DemoRastreio() {
   const [avaliacao, setAvaliacao] = useState(0);
   const [avaliado, setAvaliado] = useState(false);
 
-  const { data: pedido, isLoading } = useQuery({
+  const {
+    data: pedido,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: ["order", pedidoId],
     queryFn: () => (pedidoId ? getOrder(pedidoId) : null),
-    enabled: !!pedidoId,
+    enabled: Boolean(pedidoId),
     refetchInterval: 2000,
   });
 
@@ -76,11 +100,17 @@ export default function DemoRastreio() {
   const numeroPedido = pedido
     ? `#${pedido.orderNumber}`
     : pedidoId
-      ? `#${pedidoId}`
+      ? "Pedido não encontrado"
       : "#0000";
 
   const previsaoEntrega =
-    etapaAtual >= 3 ? "Pedido entregue" : `~${Math.max(6, 30 - etapaAtual * 8)} minutos`;
+    etapaAtual >= 3
+      ? "Pedido entregue"
+      : `~${Math.max(6, 30 - etapaAtual * 8)} minutos`;
+
+  function getHistoricoPorStatus(status) {
+    return pedido?.history?.find((item) => item.status === status);
+  }
 
   return (
     <div className="px-4 py-5 space-y-6">
@@ -95,37 +125,60 @@ export default function DemoRastreio() {
 
         {pedido && (
           <p className="text-zinc-500 text-xs mt-1">
-            {getPaymentLabel(pedido.payment_Method)} ·{" "}
+            {getPaymentLabel(pedido.paymentMethod)} ·{" "}
             {pedido.items?.length || 0} item(ns)
           </p>
         )}
 
-        <p className="text-white font-black text-lg mt-1">
-          {etapa.label}
-        </p>
+        {!isLoading && !pedido && !isError && (
+          <p className="text-red-400 text-sm mt-3">
+            Pedido não encontrado.
+          </p>
+        )}
 
-        <p className="text-zinc-400 text-sm mt-1">
-          {etapa.desc}
-        </p>
+        {isError && (
+          <div className="flex items-center justify-center gap-2 text-red-400 text-sm mt-3">
+            <AlertCircle className="w-4 h-4" />
+            <span>
+              {error instanceof Error
+                ? error.message
+                : "Não foi possível carregar o pedido."}
+            </span>
+          </div>
+        )}
 
-        <p className="text-orange-400 text-xs font-semibold mt-2">
-          Status atualizado pelo painel do restaurante
-        </p>
+        {pedido && (
+          <>
+            <p className="text-white font-black text-lg mt-1">
+              {etapa.label}
+            </p>
+
+            <p className="text-zinc-400 text-sm mt-1">
+              {etapa.desc}
+            </p>
+
+            <p className="text-orange-400 text-xs font-semibold mt-2">
+              Atualizado automaticamente pelo restaurante
+            </p>
+          </>
+        )}
       </div>
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex items-center gap-3">
-        <Clock className="w-6 h-6 text-orange-400 shrink-0" />
+      {pedido && (
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex items-center gap-3">
+          <Clock className="w-6 h-6 text-orange-400 shrink-0" />
 
-        <div>
-          <p className="text-zinc-100 font-bold text-sm">
-            Previsão de entrega
-          </p>
+          <div>
+            <p className="text-zinc-100 font-bold text-sm">
+              Previsão de entrega
+            </p>
 
-          <p className="text-zinc-500 text-xs">
-            {previsaoEntrega}
-          </p>
+            <p className="text-zinc-500 text-xs">
+              {previsaoEntrega}
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       {pedido && (
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-2">
@@ -134,9 +187,9 @@ export default function DemoRastreio() {
           </p>
 
           <div className="space-y-1">
-            {pedido.items?.map((item, index) => (
+            {pedido.items?.map((item) => (
               <div
-                key={`${pedido.id}-${index}`}
+                key={`${pedido.id}-${item.id}`}
                 className="flex justify-between gap-3 text-xs"
               >
                 <span className="text-zinc-400">
@@ -144,7 +197,7 @@ export default function DemoRastreio() {
                 </span>
 
                 <span className="text-zinc-300">
-                  R$ {(item.price * item.quantity).toFixed(2).replace(".", ",")}
+                  R$ {formatarMoeda(item.price * item.quantity)}
                 </span>
               </div>
             ))}
@@ -154,58 +207,70 @@ export default function DemoRastreio() {
             <span className="text-zinc-100">Total</span>
 
             <span className="text-orange-400">
-              R$ {pedido.total?.toFixed(2).replace(".", ",")}
+              R$ {formatarMoeda(pedido.total)}
             </span>
           </div>
         </div>
       )}
 
-      <div className="relative pl-8">
-        <div className="absolute left-3.5 top-2 bottom-2 w-0.5 bg-zinc-800" />
+      {pedido && (
+        <div className="relative pl-8">
+          <div className="absolute left-3.5 top-2 bottom-2 w-0.5 bg-zinc-800" />
 
-        <div className="space-y-6">
-          {etapas.map((item, index) => {
-            const concluida = index <= etapaAtual;
-            const ativa = index === etapaAtual;
+          <div className="space-y-6">
+            {etapas.map((item, index) => {
+              const concluida = index <= etapaAtual;
+              const ativa = index === etapaAtual;
+              const historico = getHistoricoPorStatus(item.status);
 
-            return (
-              <div
-                key={item.id}
-                className="relative flex items-start gap-4"
-              >
+              return (
                 <div
-                  className={`absolute -left-8 w-7 h-7 rounded-full flex items-center justify-center z-10 border-2 transition-all ${concluida
-                      ? "bg-orange-600 border-orange-600"
-                      : "bg-zinc-900 border-zinc-700"
-                    } ${ativa ? "ring-4 ring-orange-500/30" : ""}`}
+                  key={item.id}
+                  className="relative flex items-start gap-4"
                 >
-                  <item.icon
-                    className={`w-3.5 h-3.5 ${concluida ? "text-white" : "text-zinc-600"
-                      }`}
-                  />
-                </div>
-
-                <div className={`transition-all ${concluida ? "opacity-100" : "opacity-40"}`}>
-                  <p
-                    className={`text-sm font-bold ${concluida ? "text-zinc-100" : "text-zinc-500"
-                      }`}
+                  <div
+                    className={`absolute -left-8 w-7 h-7 rounded-full flex items-center justify-center z-10 border-2 transition-all ${
+                      concluida
+                        ? "bg-orange-600 border-orange-600"
+                        : "bg-zinc-900 border-zinc-700"
+                    } ${ativa ? "ring-4 ring-orange-500/30" : ""}`}
                   >
-                    {item.label}
-                  </p>
+                    <item.icon
+                      className={`w-3.5 h-3.5 ${
+                        concluida ? "text-white" : "text-zinc-600"
+                      }`}
+                    />
+                  </div>
 
-                  {concluida && (
-                    <p className="text-xs text-zinc-500 mt-0.5">
-                      {item.desc}
+                  <div
+                    className={`transition-all ${
+                      concluida ? "opacity-100" : "opacity-40"
+                    }`}
+                  >
+                    <p
+                      className={`text-sm font-bold ${
+                        concluida ? "text-zinc-100" : "text-zinc-500"
+                      }`}
+                    >
+                      {item.label}
                     </p>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
 
-      {etapaAtual === 3 && !avaliado && (
+                    {concluida && (
+                      <p className="text-xs text-zinc-500 mt-0.5">
+                        {historico
+                          ? `Atualizado em ${formatarData(historico.createdAt)}`
+                          : item.desc}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {etapaAtual === 3 && !avaliado && pedido && (
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 text-center space-y-3">
           <p className="text-zinc-100 font-bold">
             Como foi seu pedido?
@@ -216,8 +281,9 @@ export default function DemoRastreio() {
               <button
                 key={nota}
                 onClick={() => setAvaliacao(nota)}
-                className={`text-3xl transition-transform hover:scale-110 ${nota <= avaliacao ? "opacity-100" : "opacity-30"
-                  }`}
+                className={`text-3xl transition-transform hover:scale-110 ${
+                  nota <= avaliacao ? "opacity-100" : "opacity-30"
+                }`}
               >
                 ⭐
               </button>
@@ -243,21 +309,12 @@ export default function DemoRastreio() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
-        <Link
-          to="/admin"
-          className="block w-full py-4 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-2xl text-center text-sm transition-colors"
-        >
-          Abrir painel admin
-        </Link>
-
-        <Link
-          to="/"
-          className="block w-full py-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold rounded-2xl text-center text-sm transition-colors"
-        >
-          Fazer novo pedido
-        </Link>
-      </div>
+      <Link
+        to="/"
+        className="block w-full py-4 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-2xl text-center text-sm transition-colors"
+      >
+        Fazer novo pedido
+      </Link>
     </div>
   );
 }

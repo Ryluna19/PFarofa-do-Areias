@@ -1,13 +1,20 @@
 const STORAGE_KEY = "farofa_orders";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
-
 const ADMIN_TOKEN_KEY = "farofa-admin-token";
+
+// Preserves the HTTP status so the interface can handle expired sessions.
+function createApiError(message, status) {
+  const error = new Error(message);
+  error.status = status;
+
+  return error;
+}
 
 function getAdminAuthHeaders() {
   const token = localStorage.getItem(ADMIN_TOKEN_KEY);
 
   if (!token) {
-    throw new Error("Admin session expired. Please sign in again.");
+    throw createApiError("Admin session expired. Please sign in again.", 401);
   }
 
   return {
@@ -81,7 +88,7 @@ export async function getOrders() {
   await new Promise((resolve) => setTimeout(resolve, 100));
 
   return loadOrders().sort(
-    (a, b) => new Date(b.created_date) - new Date(a.created_date)
+    (a, b) => new Date(b.created_date) - new Date(a.created_date),
   );
 }
 
@@ -114,7 +121,10 @@ export async function getAdminOrders() {
   const result = await response.json();
 
   if (!response.ok) {
-    throw new Error(result.error || "Unable to fetch admin orders");
+    throw createApiError(
+      result.error || "Unable to fetch admin orders",
+      response.status,
+    );
   }
 
   return result;
@@ -133,7 +143,10 @@ export async function updateAdminOrderStatus(orderId, status) {
   const result = await response.json();
 
   if (!response.ok) {
-    throw new Error(result.error || "Unable to update order status");
+    throw createApiError(
+      result.error || "Unable to update order status",
+      response.status,
+    );
   }
 
   return result;
@@ -149,14 +162,11 @@ export async function updateOrderStatus(orderId, newStatus) {
       return order;
     }
 
-
     return {
       ...order,
       status: newStatus,
       updated_date: new Date().toISOString(),
     };
-
-
   });
 
   saveOrders(updatedOrders);
@@ -169,8 +179,7 @@ export async function getCurrentUser() {
 
   return {
     full_name: "Cliente",
-    email: "[cliente@farofadoareias.com.br](mailto:cliente@farofadoareias.com.br)",
+    email:
+      "[cliente@farofadoareias.com.br](mailto:cliente@farofadoareias.com.br)",
   };
 }
-
-

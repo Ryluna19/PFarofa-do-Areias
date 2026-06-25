@@ -34,7 +34,7 @@ export default function DemoHome() {
             🥘
           </div>
 
-          <p className="text-orange-100 text-xs font-bold uppercase tracking-[0.18em]">
+          <p className="text-orange-100 text-sm font-bold uppercase tracking-[0.18em]">
             Sabor de casa
           </p>
 
@@ -44,7 +44,7 @@ export default function DemoHome() {
             Areias
           </h1>
 
-          <p className="text-orange-100 text-sm lg:text-base leading-6 mt-3 max-w-xl">
+          <p className="text-orange-50 text-base leading-6 mt-3 max-w-xl">
             Farofas feitas para deixar sua refeição mais completa, do pedido à
             entrega.
           </p>
@@ -61,9 +61,9 @@ export default function DemoHome() {
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
           <Clock3 className="w-5 h-5 text-orange-400 mb-3" />
 
-          <p className="text-zinc-100 font-bold text-sm">Pedidos rápidos</p>
+          <p className="text-zinc-100 font-bold text-base">Pedidos rápidos</p>
 
-          <p className="text-zinc-500 text-xs mt-1">
+          <p className="text-zinc-300 text-sm leading-5 mt-1">
             Escolha, personalize e finalize em poucos passos.
           </p>
         </div>
@@ -71,19 +71,19 @@ export default function DemoHome() {
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
           <MapPin className="w-5 h-5 text-orange-400 mb-3" />
 
-          <p className="text-zinc-100 font-bold text-sm">Entrega local</p>
+          <p className="text-zinc-100 font-bold text-base">Entrega local</p>
 
-          <p className="text-zinc-500 text-xs mt-1">
+          <p className="text-zinc-300 text-sm leading-5 mt-1">
             Informe seu endereço no checkout para concluir o pedido.
           </p>
         </div>
       </section>
       <section>
-        <p className="text-zinc-100 font-black text-base">
+        <p className="text-zinc-100 font-black text-lg">
           Do pedido até sua porta
         </p>
 
-        <p className="text-zinc-500 text-xs mt-1">
+        <p className="text-zinc-300 text-sm mt-1">
           Um fluxo simples para pedir e acompanhar.
         </p>
 
@@ -101,11 +101,11 @@ export default function DemoHome() {
                 </div>
 
                 <div>
-                  <p className="text-zinc-100 font-bold text-sm">
+                  <p className="text-zinc-100 font-bold text-base">
                     {highlight.title}
                   </p>
 
-                  <p className="text-zinc-500 text-xs leading-5 mt-1">
+                  <p className="text-zinc-300 text-sm leading-5 mt-1">
                     {highlight.description}
                   </p>
                 </div>
@@ -114,11 +114,13 @@ export default function DemoHome() {
           })}
         </div>
       </section>
-      <section className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 text-center lg:flex lg:items-center lg:justify-between lg:text-left">
+      <section className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 lg:flex lg:items-center lg:justify-between lg:text-left">
         <div>
-          <p className="text-zinc-300 text-xs">Já sabe o que quer pedir?</p>
+          <p className="text-zinc-100 font-bold text-sm">
+            Já sabe o que quer pedir?
+          </p>
 
-          <p className="text-zinc-500 text-xs mt-1">
+          <p className="text-zinc-300 text-sm mt-1">
             Explore o cardápio e personalize sua farofa.
           </p>
         </div>
@@ -132,7 +134,7 @@ export default function DemoHome() {
       </section>
       <Link
         to="/admin"
-        className="block text-center text-zinc-500 hover:text-zinc-300 text-xs transition-colors"
+        className="block text-center text-zinc-400 hover:text-zinc-200 text-sm transition-colors"
       >
         Área do restaurante
       </Link>

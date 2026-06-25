@@ -2,6 +2,7 @@ import { Router } from "express";
 import { pool } from "../database/pool.js";
 import { requireAdmin } from "../middleware/requireAdmin.js";
 
+// Defines the allowed order status values.
 const orderStatuses = [
   "confirmed",
   "preparing",
@@ -11,6 +12,7 @@ const orderStatuses = [
 
 type OrderStatus = (typeof orderStatuses)[number];
 
+// Defines the valid next step for each order status.
 const allowedNextStatuses: Record<OrderStatus, OrderStatus[]> = {
   confirmed: ["preparing"],
   preparing: ["out_for_delivery"],
@@ -93,6 +95,15 @@ type AdminOrderItemRow = {
   unitPrice: string;
   quantity: number;
   customization: Record<string, unknown>;
+};
+
+type DashboardSummaryRow = {
+  ordersToday: string;
+  revenueToday: string;
+  confirmed: string;
+  preparing: string;
+  outForDelivery: string;
+  delivered: string;
 };
 
 class HttpError extends Error {
@@ -244,7 +255,6 @@ ordersRouter.post("/", async (request, response) => {
     );
 
     const deliveryZipCode = getOptionalText(body.address.cep, 9);
-
     const paymentMethod = body.payment.method;
 
     if (
@@ -434,6 +444,151 @@ ordersRouter.post("/", async (request, response) => {
   }
 });
 
+// Returns operational metrics for authenticated administrators.
+ordersRouter.get("/summary", requireAdmin, async (_request, response) => {
+  try {
+    const result = await pool.query<DashboardSummaryRow>(
+      `         SELECT
+          COUNT(*) FILTER (
+            WHERE created_at::date = CURRENT_DATE
+          ) AS "ordersToday",
+          COALESCE(
+            SUM(total) FILTER (
+              WHERE created_at::date = CURRENT_DATE
+            ),
+            0
+          ) AS "revenueToday",
+          COUNT(*) FILTER (
+            WHERE created_at::date = CURRENT_DATE
+              AND status = 'confirmed'
+          ) AS confirmed,
+          COUNT(*) FILTER (
+            WHERE created_at::date = CURRENT_DATE
+              AND status = 'preparing'
+          ) AS preparing,
+          COUNT(*) FILTER (
+            WHERE created_at::date = CURRENT_DATE
+              AND status = 'out_for_delivery'
+          ) AS "outForDelivery",
+          COUNT(*) FILTER (
+            WHERE created_at::date = CURRENT_DATE
+              AND status = 'delivered'
+          ) AS delivered
+        FROM orders
+      `,
+    );
+
+    const summary = result.rows[0];
+
+    return response.status(200).json({
+      ordersToday: Number(summary.ordersToday),
+      revenueToday: Number(summary.revenueToday),
+      byStatus: {
+        confirmed: Number(summary.confirmed),
+        preparing: Number(summary.preparing),
+        outForDelivery: Number(summary.outForDelivery),
+        delivered: Number(summary.delivered),
+      },
+    });
+  } catch (error) {
+    console.error("Failed to fetch dashboard summary:", error);
+
+    return response.status(500).json({
+      error: "Unable to fetch dashboard summary",
+    });
+  }
+});
+
+// Returns all orders for the administrative dashboard.
+ordersRouter.get("/", requireAdmin, async (_request, response) => {
+  try {
+    const ordersResult = await pool.query<AdminOrderRow>(
+      `         SELECT
+          id,
+          order_number AS "orderNumber",
+          customer_name AS "customerName",
+          status,
+          payment_method AS "paymentMethod",
+          total,
+          created_at AS "createdAt",
+          delivery_street AS street,
+          delivery_number AS number,
+          delivery_neighborhood AS neighborhood,
+          delivery_city AS city
+        FROM orders
+        ORDER BY created_at DESC
+      `,
+    );
+
+    const orders = ordersResult.rows;
+
+    if (orders.length === 0) {
+      return response.status(200).json([]);
+    }
+
+    const orderIds = orders.map((order) => order.id);
+
+    const itemsResult = await pool.query<AdminOrderItemRow>(
+      `
+    SELECT
+      id,
+      order_id AS "orderId",
+      product_name AS name,
+      product_emoji AS emoji,
+      unit_price AS "unitPrice",
+      quantity,
+      customization
+    FROM order_items
+    WHERE order_id = ANY($1::uuid[])
+    ORDER BY id ASC
+  `,
+      [orderIds],
+    );
+
+    const itemsByOrderId = new Map<string, AdminOrderItemRow[]>();
+
+    for (const item of itemsResult.rows) {
+      const currentItems = itemsByOrderId.get(item.orderId) || [];
+
+      currentItems.push(item);
+
+      itemsByOrderId.set(item.orderId, currentItems);
+    }
+
+    return response.status(200).json(
+      orders.map((order) => ({
+        id: order.id,
+        orderNumber: Number(order.orderNumber),
+        customerName: order.customerName,
+        status: order.status,
+        paymentMethod: order.paymentMethod,
+        total: Number(order.total),
+        createdAt: order.createdAt,
+        address: {
+          rua: order.street,
+          numero: order.number,
+          bairro: order.neighborhood,
+          cidade: order.city,
+        },
+        items: (itemsByOrderId.get(order.id) || []).map((item) => ({
+          id: item.id,
+          name: item.name,
+          emoji: item.emoji,
+          price: Number(item.unitPrice),
+          quantity: item.quantity,
+          customization: item.customization,
+        })),
+      })),
+    );
+  } catch (error) {
+    console.error("Failed to fetch admin orders:", error);
+
+    return response.status(500).json({
+      error: "Unable to fetch orders",
+    });
+  }
+});
+
 // Returns public tracking information for one order.
 ordersRouter.get("/:id", async (request, response) => {
   try {
@@ -548,99 +703,8 @@ ordersRouter.get("/:id", async (request, response) => {
   }
 });
 
-// Returns all orders for the administrative dashboard.
-ordersRouter.get("/", requireAdmin, async (_request, response) => {
-  try {
-    const ordersResult = await pool.query<AdminOrderRow>(
-      `         SELECT
-          id,
-          order_number AS "orderNumber",
-          customer_name AS "customerName",
-          status,
-          payment_method AS "paymentMethod",
-          total,
-          created_at AS "createdAt",
-          delivery_street AS street,
-          delivery_number AS number,
-          delivery_neighborhood AS neighborhood,
-          delivery_city AS city
-        FROM orders
-        ORDER BY created_at DESC
-      `,
-    );
-
-    const orders = ordersResult.rows;
-
-    if (orders.length === 0) {
-      return response.status(200).json([]);
-    }
-
-    const orderIds = orders.map((order) => order.id);
-
-    const itemsResult = await pool.query<AdminOrderItemRow>(
-      `
-    SELECT
-      id,
-      order_id AS "orderId",
-      product_name AS name,
-      product_emoji AS emoji,
-      unit_price AS "unitPrice",
-      quantity,
-      customization
-    FROM order_items
-    WHERE order_id = ANY($1::uuid[])
-    ORDER BY id ASC
-  `,
-      [orderIds],
-    );
-
-    const itemsByOrderId = new Map<string, AdminOrderItemRow[]>();
-
-    for (const item of itemsResult.rows) {
-      const currentItems = itemsByOrderId.get(item.orderId) || [];
-
-      currentItems.push(item);
-
-      itemsByOrderId.set(item.orderId, currentItems);
-    }
-
-    return response.status(200).json(
-      orders.map((order) => ({
-        id: order.id,
-        orderNumber: Number(order.orderNumber),
-        customerName: order.customerName,
-        status: order.status,
-        paymentMethod: order.paymentMethod,
-        total: Number(order.total),
-        createdAt: order.createdAt,
-        address: {
-          rua: order.street,
-          numero: order.number,
-          bairro: order.neighborhood,
-          cidade: order.city,
-        },
-        items: (itemsByOrderId.get(order.id) || []).map((item) => ({
-          id: item.id,
-          name: item.name,
-          emoji: item.emoji,
-          price: Number(item.unitPrice),
-          quantity: item.quantity,
-          customization: item.customization,
-        })),
-      })),
-    );
-  } catch (error) {
-    console.error("Failed to fetch admin orders:", error);
-
-    return response.status(500).json({
-      error: "Unable to fetch orders",
-    });
-  }
-});
-
 // Updates the order status and records the change history.
 ordersRouter.patch("/:id/status", requireAdmin, async (request, response) => {
-  const orderId = request.params.id;
   const body = request.body as { status?: unknown };
 
   try {

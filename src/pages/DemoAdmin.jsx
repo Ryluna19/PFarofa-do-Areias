@@ -6,10 +6,14 @@ import {
   LogOut,
   PackageCheck,
 } from "lucide-react";
-import { useAdminAuth } from "../context/AdminAuthContext";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getAdminOrders, updateAdminOrderStatus } from "../lib/dataService";
 import { Link } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAdminAuth } from "../context/AdminAuthContext";
+import {
+  getAdminDashboardSummary,
+  getAdminOrders,
+  updateAdminOrderStatus,
+} from "../lib/dataService";
 
 const statusOptions = [
   {
@@ -41,6 +45,40 @@ const nextStatusByCurrent = {
   delivered: null,
 };
 
+const emptySummary = {
+  ordersToday: 0,
+  revenueToday: 0,
+  byStatus: {
+    confirmed: 0,
+    preparing: 0,
+    outForDelivery: 0,
+    delivered: 0,
+  },
+};
+
+const summaryStatusCards = [
+  {
+    key: "confirmed",
+    label: "Confirmados",
+    color: "text-orange-400",
+  },
+  {
+    key: "preparing",
+    label: "Em preparo",
+    color: "text-yellow-400",
+  },
+  {
+    key: "outForDelivery",
+    label: "Em entrega",
+    color: "text-blue-400",
+  },
+  {
+    key: "delivered",
+    label: "Entregues",
+    color: "text-green-400",
+  },
+];
+
 function formatarMoeda(valor = 0) {
   return Number(valor).toFixed(2).replace(".", ",");
 }
@@ -65,20 +103,44 @@ function isAuthenticationError(error) {
 
 export default function DemoAdmin() {
   const queryClient = useQueryClient();
+  const { admin, logout } = useAdminAuth();
+
   const [updatingId, setUpdatingId] = useState(null);
   const [updateError, setUpdateError] = useState("");
 
   const {
     data: pedidos = [],
-    isLoading,
-    isError,
-    error,
+    isLoading: isOrdersLoading,
+    isError: isOrdersError,
+    error: ordersError,
   } = useQuery({
     queryKey: ["adminOrders"],
     queryFn: getAdminOrders,
   });
 
-  const { admin, logout } = useAdminAuth();
+  const {
+    data: resumo = emptySummary,
+    isLoading: isSummaryLoading,
+    isError: isSummaryError,
+    error: summaryError,
+  } = useQuery({
+    queryKey: ["adminSummary"],
+    queryFn: getAdminDashboardSummary,
+  });
+
+  const isLoading = isOrdersLoading || isSummaryLoading;
+  const isError = isOrdersError || isSummaryError;
+  const loadError = ordersError || summaryError;
+
+  // Returns to login when the saved token is no longer valid.
+  useEffect(() => {
+    if (
+      isAuthenticationError(ordersError) ||
+      isAuthenticationError(summaryError)
+    ) {
+      logout();
+    }
+  }, [ordersError, summaryError, logout]);
 
   const handleStatusChange = async (pedidoId, novoStatus) => {
     setUpdatingId(pedidoId);
@@ -87,9 +149,15 @@ export default function DemoAdmin() {
     try {
       await updateAdminOrderStatus(pedidoId, novoStatus);
 
-      await queryClient.invalidateQueries({
-        queryKey: ["adminOrders"],
-      });
+      // Refreshes orders and daily metrics after a status update.
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["adminOrders"],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["adminSummary"],
+        }),
+      ]);
     } catch (requestError) {
       if (isAuthenticationError(requestError)) {
         logout();
@@ -106,19 +174,20 @@ export default function DemoAdmin() {
     }
   };
 
-  const faturamento = pedidos.reduce(
-    (total, pedido) => total + Number(pedido.total || 0),
-    0,
-  );
+  const statusSummary = resumo.byStatus || emptySummary.byStatus;
 
   return (
     <div className="px-4 py-5 space-y-5">
       {" "}
       <div className="bg-gradient-to-br from-zinc-900 to-zinc-950 border border-zinc-800 rounded-2xl p-5">
+        {" "}
         <div className="flex items-start justify-between gap-3">
+          {" "}
           <div className="flex items-center gap-3">
+            {" "}
             <div className="w-11 h-11 rounded-xl bg-orange-600 flex items-center justify-center">
-              <ClipboardList className="w-6 h-6 text-white" />
+              {" "}
+              <ClipboardList className="w-6 h-6 text-white" />{" "}
             </div>
             <div>
               <p className="text-zinc-100 font-black text-lg">
@@ -140,22 +209,43 @@ export default function DemoAdmin() {
           </button>
         </div>
       </div>
+      <div>
+        <p className="text-zinc-100 font-black text-sm">Resumo de hoje</p>
+
+        <p className="text-zinc-500 text-xs mt-1">
+          Métricas calculadas a partir dos pedidos criados hoje.
+        </p>
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-          <p className="text-zinc-500 text-xs">Pedidos recebidos</p>
+          <p className="text-zinc-500 text-xs">Pedidos hoje</p>
 
           <p className="text-orange-400 font-black text-2xl">
-            {pedidos.length}
+            {resumo.ordersToday}
           </p>
         </div>
 
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-          <p className="text-zinc-500 text-xs">Faturamento</p>
+          <p className="text-zinc-500 text-xs">Faturamento hoje</p>
 
           <p className="text-orange-400 font-black text-2xl">
-            R$ {formatarMoeda(faturamento)}
+            R$ {formatarMoeda(resumo.revenueToday)}
           </p>
         </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        {summaryStatusCards.map((card) => (
+          <div
+            key={card.key}
+            className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4"
+          >
+            <p className="text-zinc-500 text-xs">{card.label}</p>
+
+            <p className={`font-black text-xl mt-1 ${card.color}`}>
+              {statusSummary[card.key] || 0}
+            </p>
+          </div>
+        ))}
       </div>
       {isLoading && (
         <div className="flex items-center justify-center py-10">
@@ -167,9 +257,9 @@ export default function DemoAdmin() {
           <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
 
           <p className="text-red-300 text-sm">
-            {error instanceof Error
-              ? error.message
-              : "Não foi possível carregar os pedidos."}
+            {loadError instanceof Error
+              ? loadError.message
+              : "Não foi possível carregar os dados do painel."}
           </p>
         </div>
       )}
@@ -190,6 +280,15 @@ export default function DemoAdmin() {
 
           <p className="text-zinc-500 text-xs mt-1">
             Faça um pedido pelo app para ele aparecer aqui.
+          </p>
+        </div>
+      )}
+      {!isLoading && !isError && pedidos.length > 0 && (
+        <div>
+          <p className="text-zinc-100 font-black text-sm">Todos os pedidos</p>
+
+          <p className="text-zinc-500 text-xs mt-1">
+            Atualize o status para refletir o andamento da operação.
           </p>
         </div>
       )}
@@ -261,10 +360,10 @@ export default function DemoAdmin() {
                   <span>{getPaymentLabel(pedido.paymentMethod)}</span>
                 </div>
 
-                <div className="flex justify-between text-zinc-400">
+                <div className="flex justify-between gap-3 text-zinc-400">
                   <span>Entrega</span>
 
-                  <span>
+                  <span className="text-right">
                     {pedido.address?.rua}, {pedido.address?.numero} ·{" "}
                     {pedido.address?.bairro}
                   </span>
@@ -297,7 +396,7 @@ export default function DemoAdmin() {
                 )}
 
                 <Link
-                  to={`/rastreio?pedido=${pedido.id}`}
+                  to={`/rastreio?pedido=${pedido.id}&from=admin`}
                   className="block w-full py-3 mt-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold rounded-xl text-center text-sm transition-colors"
                 >
                   Ver rastreio do cliente

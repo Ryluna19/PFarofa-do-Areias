@@ -506,3 +506,58 @@ describe("PATCH /api/orders/:id/status", () => {
     expect(connectSpy).not.toHaveBeenCalled();
   });
 });
+
+describe("GET /api/orders/summary", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns today's dashboard summary for an authenticated admin", async () => {
+    // Simulates the aggregated values returned by PostgreSQL.
+    const querySpy = vi.spyOn(pool, "query").mockResolvedValue({
+      rows: [
+        {
+          ordersToday: "3",
+          revenueToday: "89.70",
+          confirmed: "1",
+          preparing: "1",
+          outForDelivery: "0",
+          delivered: "1",
+        },
+      ],
+    } as never);
+
+    const response = await request(createApp())
+      .get("/api/orders/summary")
+      .set("Authorization", `Bearer ${createAdminToken()}`);
+
+    expect(response.status).toBe(200);
+
+    expect(response.body).toEqual({
+      ordersToday: 3,
+      revenueToday: 89.7,
+      byStatus: {
+        confirmed: 1,
+        preparing: 1,
+        outForDelivery: 0,
+        delivered: 1,
+      },
+    });
+
+    expect(querySpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects dashboard requests without an admin token", async () => {
+    const querySpy = vi.spyOn(pool, "query");
+
+    const response = await request(createApp()).get("/api/orders/summary");
+
+    expect(response.status).toBe(401);
+
+    expect(response.body).toEqual({
+      error: "Authentication token is required",
+    });
+
+    expect(querySpy).not.toHaveBeenCalled();
+  });
+});

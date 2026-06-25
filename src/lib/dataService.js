@@ -130,6 +130,23 @@ export async function getAdminOrders() {
   return result;
 }
 
+export async function getAdminDashboardSummary() {
+  const response = await fetch(`${API_URL}/orders/summary`, {
+    headers: getAdminAuthHeaders(),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw createApiError(
+      result.error || "Unable to fetch dashboard summary",
+      response.status,
+    );
+  }
+
+  return result;
+}
+
 export async function updateAdminOrderStatus(orderId, status) {
   const response = await fetch(`${API_URL}/orders/${orderId}/status`, {
     method: "PATCH",

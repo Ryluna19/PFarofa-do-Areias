@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { useAdminAuth } from "../context/AdminAuthContext";
 import {
   AlertCircle,
   Bike,
@@ -78,7 +79,9 @@ function formatarData(data) {
 export default function DemoRastreio() {
   const [searchParams] = useSearchParams();
   const pedidoId = searchParams.get("pedido");
-
+  const { isAuthenticated } = useAdminAuth();
+  const openedFromAdmin = searchParams.get("from") === "admin";
+  const canReturnToAdmin = openedFromAdmin && isAuthenticated;
   const [avaliacao, setAvaliacao] = useState(0);
   const [avaliado, setAvaliado] = useState(false);
 
@@ -94,7 +97,7 @@ export default function DemoRastreio() {
     refetchInterval: 2000,
   });
 
-  const etapaAtual = pedido ? statusToStep[pedido.status] ?? 0 : 0;
+  const etapaAtual = pedido ? (statusToStep[pedido.status] ?? 0) : 0;
   const etapa = etapas[etapaAtual];
 
   const numeroPedido = pedido
@@ -131,9 +134,7 @@ export default function DemoRastreio() {
         )}
 
         {!isLoading && !pedido && !isError && (
-          <p className="text-red-400 text-sm mt-3">
-            Pedido não encontrado.
-          </p>
+          <p className="text-red-400 text-sm mt-3">Pedido não encontrado.</p>
         )}
 
         {isError && (
@@ -149,13 +150,9 @@ export default function DemoRastreio() {
 
         {pedido && (
           <>
-            <p className="text-white font-black text-lg mt-1">
-              {etapa.label}
-            </p>
+            <p className="text-white font-black text-lg mt-1">{etapa.label}</p>
 
-            <p className="text-zinc-400 text-sm mt-1">
-              {etapa.desc}
-            </p>
+            <p className="text-zinc-400 text-sm mt-1">{etapa.desc}</p>
 
             <p className="text-orange-400 text-xs font-semibold mt-2">
               Atualizado automaticamente pelo restaurante
@@ -173,18 +170,14 @@ export default function DemoRastreio() {
               Previsão de entrega
             </p>
 
-            <p className="text-zinc-500 text-xs">
-              {previsaoEntrega}
-            </p>
+            <p className="text-zinc-500 text-xs">{previsaoEntrega}</p>
           </div>
         </div>
       )}
 
       {pedido && (
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-2">
-          <p className="text-zinc-100 font-bold text-sm">
-            Resumo do pedido
-          </p>
+          <p className="text-zinc-100 font-bold text-sm">Resumo do pedido</p>
 
           <div className="space-y-1">
             {pedido.items?.map((item) => (
@@ -224,10 +217,7 @@ export default function DemoRastreio() {
               const historico = getHistoricoPorStatus(item.status);
 
               return (
-                <div
-                  key={item.id}
-                  className="relative flex items-start gap-4"
-                >
+                <div key={item.id} className="relative flex items-start gap-4">
                   <div
                     className={`absolute -left-8 w-7 h-7 rounded-full flex items-center justify-center z-10 border-2 transition-all ${
                       concluida
@@ -272,9 +262,7 @@ export default function DemoRastreio() {
 
       {etapaAtual === 3 && !avaliado && pedido && (
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 text-center space-y-3">
-          <p className="text-zinc-100 font-bold">
-            Como foi seu pedido?
-          </p>
+          <p className="text-zinc-100 font-bold">Como foi seu pedido?</p>
 
           <div className="flex justify-center gap-2">
             {[1, 2, 3, 4, 5].map((nota) => (
@@ -309,12 +297,21 @@ export default function DemoRastreio() {
         </div>
       )}
 
-      <Link
-        to="/"
-        className="block w-full py-4 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-2xl text-center text-sm transition-colors"
-      >
-        Fazer novo pedido
-      </Link>
+      {canReturnToAdmin ? (
+        <Link
+          to="/admin"
+          className="block w-full py-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-bold rounded-2xl text-center text-sm transition-colors"
+        >
+          Voltar ao painel
+        </Link>
+      ) : (
+        <Link
+          to="/"
+          className="block w-full py-4 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-2xl text-center text-sm transition-colors"
+        >
+          Fazer novo pedido
+        </Link>
+      )}
     </div>
   );
 }
